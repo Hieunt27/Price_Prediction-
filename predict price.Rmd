@@ -1,0 +1,107 @@
+---
+title: "Predict Price"
+author: "Hieu Trung Nguyen"
+date: "8/1/2022"
+output: html_document
+---
+In this project, we will predict Price variable from dataset Computers in the Ecdat package. 
+a. Record categorical variables as factors and remove variables that cannot be used in the analysis. 
+
+```{r}
+# loading library. In case there is no library install yet, we can use the code: 
+# install.packages('Ecdat')
+library(Ecdat)
+
+data(Computers) # calling for the dataset
+# View(Computers)
+len <- sapply(Computers, table) # display the length of each varaible in the Computers dataset
+# for the variables that having less than 5 values, we change them as factor
+Computers$screen <- as.factor(Computers$screen)
+Computers$cd <- as.factor(Computers$cd)
+Computers$multi <- as.factor(Computers$multi)
+Computers$premium <- as.factor(Computers$premium)
+sapply(Computers, class) # check the class of varaible in Computers
+```
+```{r}
+n <- nrow(Computers) # counting the rows of Computers and assign it to n
+ntrain <- floor(n/2) # having the ntrain variable as 50% of the n variable
+set.seed(4598) # set seed as 4598
+ind <- sample(1:n, ntrain) # having ind as randomly sample of all n, size of ind = ntrain
+train <- Computers[ind, ] # having all variables value (observations) that we sampling from ind
+test <- Computers[-ind, ]
+```
+b. use descriptive statistic to find promising predictors 
+```{r}
+plot(price~., data = train)
+```
+
+
+c. run a linear regression on all explanatory variables. Interpret some of the coefficients. Evaluate the prediction performance on an appropriate measure. 
+```{r}
+reg1 <- lm(price~., data = train)  # run the linear regression of of price to all other varaibles.
+summary(reg1)
+```
+All variables are significant.
+```{r}
+
+pred1 <- predict(reg1, newdata = test) # predict price from the result reg1 using new dataset test
+MSE1 <- mean((test$price-pred1)^2) # calcualte mean square error
+MSE1
+
+```
+
+d. investigate if the predictions of price would be better if we use a linear regression of log(price) on the other variables.
+```{r}
+Computers$logp <- log(Computers$price) # create new variable logp by using log(price)
+train <- Computers[ind, ] # create new train dataset including new variable logp
+test <- Computers[-ind,]
+reg2 <- lm(logp~.-price, data = train) # using linear regression using all other variables except price to predict price
+pred2 <- exp(predict(reg2, newdata=test)) # predict logp from the test dataset using the result from reg2
+MSE2 <- mean((test$price-pred2)^2)  # calculate the mean square error
+MSE2
+MSE1 - MSE2
+```
+With logp, the MSE is higher than without log. MSE the lower the value the better and 0 means the model is perfect.
+e. in d we fitted a model where price is a particular nonlinear function of the other variables. We now investigate other non-linear models. First, fit a GAM-model, plot the result and evalute the predictions.
+```{r}
+# call for library gam
+library(gam)
+gam1 <- gam(price~s(speed) + s(hd) + s(ram) + screen + cd + multi + premium + s(ads) + s(trend), data=train) # call gam prediction, for numeric variable. s() Function used in definition of smooth terms within gam model formulae. The function does not evaluate a (spline) smooth - it exists purely to help set up a model using spline based smooths.
+par(mfrow=c(3,3)) # set the plot for 3*3 images 
+plot(gam1) # plot the gam1 result
+```
+```{r}
+pred3 <- predict(gam1, newdata = test) # predict price using newdata test, based on the gam1 result
+MSE3 <- mean((test$price-pred3)^2)
+MSE3
+MSE1 - MSE3
+```
+GAM improved the prediction quite a lot
+
+f. give a brief explantion of how backfitting works and in what situation it is possible to fit a generalized additive model with ordinary least square regression. 
+In backfitting a model of the form: 
+  y = f1(x1) + f2(x2) +  ϵ 
+is estimated by first setting f2(x2) = 0 and estimate f1 with a method for one-predictor models, e.g., the Nadaraya-Watson estimator. The residuals e1 = y -f1^(x1) are then computed and will substitute the response variable in the next iteration where e is fitted to f2(x2). Now, the residuals e2 = e1 - f2^(x2) are computed and again fitted to f1(x1). this procedure is continued until the estimators of f1 and f2 converges. 
+A GAM can be fitted with OLS if the functions fk(xk) can be written with so called basis functions. Examples of that are splines and piecewise polynomials. 
+
+g. Use bagged trees to predict price. Evaluate the predictions. Compute varaible importance measures and comment on the results. Explain the logic behind the measure for variable importance using.
+```{r}
+# loading library 
+library(randomForest)
+
+bag1 <- randomForest(price~. - logp, data=train, mtry=9, ntree=100) # predict price using all variables execpt logp of the train dataset. Number of randomly sampled predictors = 9, the number of bootstrap replicates = 100
+pred4 <- predict(bag1, newdata = test) # predict price using test dataset based on the result of bag1
+MSE4 <- mean((test$price-pred4)^2)
+MSE4
+MSE3-MSE4
+```
+The prediction result is significantly improved. 
+```{r}
+varImpPlot(bag1)
+```
+
+
+The measure used is average decrease in MSE over all trees obtained when a variable is added. 
+
+h. Give a brief explanation of bagging 
+In bagging, bootstrap samples (a draw, with replacement, of the same size as original sample) are use to fit a model, e.g., a regression tree. A prediction is done by the model for each bootstrap sample and the final prediction is computed by averaging all of them.
