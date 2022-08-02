@@ -30,6 +30,7 @@ ind <- sample(1:n, ntrain) # having ind as randomly sample of all n, size of ind
 train <- Computers[ind, ] # having all variables value (observations) that we sampling from ind
 test <- Computers[-ind, ]
 ```
+
 b. use descriptive statistic to find promising predictors 
 ```{r}
 plot(price~., data = train)
@@ -62,6 +63,7 @@ MSE2
 MSE1 - MSE2
 ```
 With logp, the MSE is higher than without log. MSE the lower the value the better and 0 means the model is perfect.
+
 e. in d we fitted a model where price is a particular nonlinear function of the other variables. We now investigate other non-linear models. First, fit a GAM-model, plot the result and evalute the predictions.
 ```{r}
 # call for library gam
